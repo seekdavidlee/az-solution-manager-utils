@@ -1,0 +1,35 @@
+{
+  "version": "0.1.0",
+  "unique-resource-variables": {
+    "sharedres": [
+      {
+        "asm-resource-id": "shared-key-vault",
+        "resource-type": "Microsoft.KeyVault/vaults"
+      },
+      {
+        "asm-resource-id": "shared-container-registry",
+        "resource-type": "Microsoft.ContainerRegistry/registries"
+      },
+      {
+        "asm-resource-id": "shared-app-configuration",
+        "resource-type": "Microsoft.AppConfiguration/configurationStores"
+      },
+      {
+        "asm-resource-id": "shared-storage",
+        "resource-type": "Microsoft.Storage/storageAccounts"
+      },
+      {
+        "asm-resource-id": "shared-managed-identity",
+        "resource-type": "Microsoft.ManagedIdentity/userAssignedIdentities"
+      }
+    ]
+  },
+  "groups": [
+    {
+      "resource-group-name": "shared-services",
+      "unique-resources-variable-key": "sharedres",
+      "asm-solution-id": "shared-services",
+      "asm-environment": "prod"
+    }
+  ]
+}

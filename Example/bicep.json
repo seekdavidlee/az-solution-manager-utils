@@ -1,0 +1,12 @@
+{
+    "parameters": {
+        "storageName": "@asm-resource-id:shared-storage,@asm-resource-type:Microsoft.Storage/storageAccounts",
+        "appConfigName": "@asm-resource-id:shared-app-configuration,@asm-resource-type:Microsoft.AppConfiguration/configurationStores",
+        "keyVaultName": "@asm-resource-id:shared-key-vault,@asm-resource-type:Microsoft.KeyVault/vaults",
+        "containerRegistryName": "@asm-resource-id:shared-container-registry,@asm-resource-type:Microsoft.ContainerRegistry/registries",
+        "sharedIdentityName": "@asm-resource-id:shared-managed-identity,@asm-resource-type:Microsoft.ManagedIdentity/userAssignedIdentities"
+    },
+    "solutionId": "shared-services",
+    "environment": "prod",
+    "compressJsonOutput": true
+}
