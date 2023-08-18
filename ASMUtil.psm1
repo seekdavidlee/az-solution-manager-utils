@@ -78,13 +78,15 @@ function Invoke-ASMSetup {
         if ($deploymentInput.Parameters) {
             $json = $deploymentInput.Parameters | ConvertTo-Json -Compress
             $json = $json.Replace('"', '\"')
-            az deployment group create --name $deploymentName --resource-group $deploymentInput.GroupName --template-file "$DIRECTORY\deploy.bicep" --parameters $json 
         }
         else {
             $json = ""
         }
 
         az deployment group create --name $deploymentName --resource-group $deploymentInput.GroupName --template-file "$DIRECTORY\deploy.bicep" --parameters $json
+        if ($LastExitCode -ne 0) {
+            throw "Error with deployment."
+        }
     }
 
     Push-Location $DIRECTORY
