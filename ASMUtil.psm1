@@ -1,10 +1,24 @@
 function ApplyManifest {
     param(
         [Parameter(Mandatory = $true)][string]$DIRECTORY,
-        [Parameter(Mandatory = $true)][string]$SUBSCRIPTION
+        [Parameter(Mandatory = $true)][string]$SUBSCRIPTION,
+        [Parameter(Mandatory = $false)][string]$ENVIRONMENT,
+        [Parameter(Mandatory = $false)][string]$REGION
     )
     $filePath = (Get-Location).Path + "\$DIRECTORY\manifest.json"
-    asm manifest apply -f $filePath -s $SUBSCRIPTION -t $TENANT --logging Info
+    $addArgs = @()
+
+    if ($ENVIRONMENT) {
+        $addArgs += "--asm-env"
+        $addArgs += $ENVIRONMENT
+    }
+
+    if ($REGION) {
+        $addArgs += "--asm-reg"
+        $addArgs += $REGION
+    }
+
+    asm manifest apply -f $filePath -s $SUBSCRIPTION -t $TENANT $addArgs --logging Info
     if ($LastExitCode -ne 0) {
         Pop-Location
         throw "Unable to apply manifest."
@@ -16,10 +30,28 @@ function GetDeploymentInput {
     param(
         [Parameter(Mandatory = $true)][string]$bicepFilePath,
         [Parameter(Mandatory = $true)][string]$DIRECTORY,
-        [Parameter(Mandatory = $true)][string]$SUBSCRIPTION
+        [Parameter(Mandatory = $true)][string]$SUBSCRIPTION,
+        [Parameter(Mandatory = $false)][string]$ENVIRONMENT,
+        [Parameter(Mandatory = $false)][string]$REGION
     )
+
+    $addArgs = @()
+
+    if ($ENVIRONMENT) {
+        $addArgs += "--asm-env"
+        $addArgs += $ENVIRONMENT
+
+        Write-Host "Set environment: $ENVIRONMENT"
+    }
+
+    if ($REGION) {
+        $addArgs += "--asm-reg"
+        $addArgs += $REGION
+
+        Write-Host "Set region: $REGION"
+    }
     
-    $json = asm deployment parameters -f $bicepFilePath -s $SUBSCRIPTION -t $TENANT --logging Info
+    $json = asm deployment parameters -f $bicepFilePath -s $SUBSCRIPTION -t $TENANT $addArgs --logging Info
     if ($LastExitCode -ne 0) {
         Pop-Location
         throw "Unable to generate deployment input."
@@ -57,21 +89,27 @@ function Invoke-ASMSetup {
         [Parameter(Mandatory = $true)][string]$DIRECTORY,
         [Parameter(Mandatory = $true)][string]$SUBSCRIPTION,
         [Parameter(Mandatory = $true)][string]$TENANT,
+        [Parameter(Mandatory = $false)][string]$ENVIRONMENT,
+        [Parameter(Mandatory = $false)][string]$REGION,
         [switch]$SkipManifest)
 
     $ErrorActionPreference = "Stop"
 
     if (!$SkipManifest) {
-        ApplyManifest  -DIRECTORY $DIRECTORY -SUBSCRIPTION $SUBSCRIPTION
+        ApplyManifest  -DIRECTORY $DIRECTORY -SUBSCRIPTION $SUBSCRIPTION -ENVIRONMENT $ENVIRONMENT -REGION $REGION
     }
 
     Get-ChildItem -Path $DIRECTORY -Filter "*.json"-File | Where-Object { $_.Name -like "*_bicep.json" -or $_.Name -eq "bicep.json" } | ForEach-Object {
         $current = $_
         Write-Host "Processing $current"
-        $deploymentInput = GetDeploymentInput -bicepFilePath $current.FullName -DIRECTORY $DIRECTORY -SUBSCRIPTION $SUBSCRIPTION
+        $deploymentInput = GetDeploymentInput -bicepFilePath $current.FullName -DIRECTORY $DIRECTORY -SUBSCRIPTION $SUBSCRIPTION -ENVIRONMENT $ENVIRONMENT -REGION $REGION
 
         if (!$deploymentInput) {
             throw "Unable to generate deployment input!";
+        }
+
+        if (!$deploymentInput.GroupName) {
+            throw "Group name is not configured! $deploymentInput"
         }
 
         $deploymentName = $DIRECTORY + (Get-Date).ToString("yyyyMMddHHmmss")
@@ -91,7 +129,16 @@ function Invoke-ASMSetup {
 
     Push-Location $DIRECTORY
     if (Test-Path .\postDeployment.ps1) {
-        .\postDeployment.ps1 -SUBSCRIPTION $SUBSCRIPTION -TENANT $TENANT
+        
+        if ($ENVIRONMENT) {
+            Write-Host "Set post-deployment var environment: $ENVIRONMENT"
+        }
+    
+        if ($REGION) {
+            Write-Host "Set post-deployment var region: $REGION"
+        }
+
+        .\postDeployment.ps1 -SUBSCRIPTION $SUBSCRIPTION -TENANT $TENANT -ENVIRONMENT $ENVIRONMENT -REGION $REGION
     }
     Pop-Location
 }

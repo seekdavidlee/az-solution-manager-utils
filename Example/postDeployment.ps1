@@ -1,6 +1,8 @@
 param(
     [Parameter(Mandatory = $true)][string]$SUBSCRIPTION,
-    [Parameter(Mandatory = $true)][string]$TENANT)
+    [Parameter(Mandatory = $true)][string]$TENANT,
+    [Parameter(Mandatory = $false)][string]$ENVIRONMENT,
+    [Parameter(Mandatory = $false)][string]$REGION)
 
 
 function GetResource {
