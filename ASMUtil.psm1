@@ -112,16 +112,17 @@ function Invoke-ASMSetup {
             throw "Group name is not configured! $deploymentInput"
         }
 
+        $addArgs = @()
         $deploymentName = $DIRECTORY + (Get-Date).ToString("yyyyMMddHHmmss")
         if ($deploymentInput.Parameters) {
             $json = $deploymentInput.Parameters | ConvertTo-Json -Compress
             $json = $json.Replace('"', '\"')
-        }
-        else {
-            $json = ""
+
+            $addArgs += "--parameters"
+            $addArgs += $json
         }
 
-        az deployment group create --name $deploymentName --resource-group $deploymentInput.GroupName --template-file "$DIRECTORY\deploy.bicep" --parameters $json
+        az deployment group create --name $deploymentName --resource-group $deploymentInput.GroupName --template-file "$DIRECTORY\deploy.bicep" $addArgs
         if ($LastExitCode -ne 0) {
             throw "Error with deployment."
         }
