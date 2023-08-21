@@ -226,3 +226,102 @@ function Add-ASMGitHubDeployment {
 }
 
 Export-ModuleMember -Function Add-ASMGitHubDeployment
+
+<#
+.SYNOPSIS
+Gets the Resource Object
+
+.DESCRIPTION
+The Resource Object will Contain the Resource Id of the located resource, Name, and Resource Group.
+
+.PARAMETER SOLUTIONID
+ASM Solution Id
+
+.PARAMETER ENVIRONMENT
+ASM Environment Name
+
+.PARAMETER RESOURCEID
+ASM Resource Id
+
+.PARAMETER SUBSCRIPTION
+Azure Subscription Id
+
+.PARAMETER TENANT
+Azure Tenant Id
+
+.EXAMPLE
+N/A
+
+#>
+function Get-ASMResource {
+    param (
+        [Parameter(Mandatory = $true)][string]$SOLUTIONID,
+        [Parameter(Mandatory = $true)][string]$ENVIRONMENT,
+        [Parameter(Mandatory = $true)][string]$RESOURCEID,
+        [Parameter(Mandatory = $true)][string]$SUBSCRIPTION,
+        [Parameter(Mandatory = $true)][string]$TENANT
+    )
+    
+    $obj = asm lookup resource --asm-rid $RESOURCEID --asm-sol $SOLUTIONID `
+        --asm-env $ENVIRONMENT -s $SUBSCRIPTION -t $TENANT --logging Info | ConvertFrom-Json
+
+    if ($LastExitCode -ne 0) {
+        Pop-Location
+        throw "Unable to lookup resource."
+    }
+    
+    return $obj
+}
+
+Export-ModuleMember -Function Get-ASMResource
+
+<#
+.SYNOPSIS
+Assign GitHub Deployment AAD Group 'Contributor' role in the Solution managed Resource Group.
+
+.DESCRIPTION
+The Service Principal that is assigned to the 'GitHub Deployment' AAD Group will have access to create resources such as during CI/CD pipeline.
+
+.PARAMETER SOLUTIONID
+ASM Solution Id
+
+.PARAMETER ENVIRONMENT
+ASM Environment Name
+
+.PARAMETER SUBSCRIPTION
+Azure Subscription Id
+
+.PARAMETER TENANT
+Azure Tenant Id
+
+.EXAMPLE
+N/A
+
+#>
+function Set-ASMGitHubDeploymentToResourceGroup {
+    param (
+        [Parameter(Mandatory = $true)][string]$SOLUTIONID,
+        [Parameter(Mandatory = $true)][string]$ENVIRONMENT,
+        [Parameter(Mandatory = $true)][string]$SUBSCRIPTION,
+        [Parameter(Mandatory = $true)][string]$TENANT
+    )
+
+    $ghgroups = az ad group list --display-name "GitHub Deployment" | ConvertFrom-Json
+    if ($ghgroups.Length -eq 0) {
+        throw "Run Add-ASMGitHubDeployment to create GitHub Deployment and its AAD group before running this script!"
+    }
+
+    asm role assign --role-name "Contributor" `
+        --principal-id $ghgroups.Id `
+        --principal-type "Group" `
+        --asm-sol $SOLUTIONID `
+        --asm-env $ENVIRONMENT `
+        -s $SUBSCRIPTION `
+        -t $TENANT --logging Info
+
+    if ($LastExitCode -ne 0) {
+        throw "Error with role assignment."
+    }
+}
+
+Export-ModuleMember -Function Set-ASMGitHubDeploymentToResourceGroup 
