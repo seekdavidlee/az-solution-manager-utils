@@ -32,7 +32,8 @@ function GetDeploymentInput {
         [Parameter(Mandatory = $true)][string]$DIRECTORY,
         [Parameter(Mandatory = $true)][string]$SUBSCRIPTION,
         [Parameter(Mandatory = $false)][string]$ENVIRONMENT,
-        [Parameter(Mandatory = $false)][string]$REGION
+        [Parameter(Mandatory = $false)][string]$REGION,
+        [Parameter(Mandatory = $false)][string]$COMPONENT
     )
 
     $addArgs = @()
@@ -49,6 +50,13 @@ function GetDeploymentInput {
         $addArgs += $REGION
 
         Write-Host "Set region: $REGION"
+    }
+
+    if ($COMPONENT) {
+        $addArgs += "--asm-com"
+        $addArgs += $COMPONENT
+
+        Write-Host "Set component: $COMPONENT"
     }
     
     $json = asm deployment parameters -f $bicepFilePath -s $SUBSCRIPTION -t $TENANT $addArgs --logging Info
@@ -91,18 +99,23 @@ function Invoke-ASMSetup {
         [Parameter(Mandatory = $true)][string]$TENANT,
         [Parameter(Mandatory = $false)][string]$ENVIRONMENT,
         [Parameter(Mandatory = $false)][string]$REGION,
-        [switch]$SkipManifest)
+        [Parameter(Mandatory = $false)][string]$COMPONENT,
+        [switch]$SKIPMANIFEST)
 
     $ErrorActionPreference = "Stop"
 
-    if (!$SkipManifest) {
+    if (!$SKIPMANIFEST) {
         ApplyManifest  -DIRECTORY $DIRECTORY -SUBSCRIPTION $SUBSCRIPTION -ENVIRONMENT $ENVIRONMENT -REGION $REGION
     }
 
     Get-ChildItem -Path $DIRECTORY -Filter "*.json"-File | Where-Object { $_.Name -like "*_bicep.json" -or $_.Name -eq "bicep.json" } | ForEach-Object {
         $current = $_
         Write-Host "Processing $current"
-        $deploymentInput = GetDeploymentInput -bicepFilePath $current.FullName -DIRECTORY $DIRECTORY -SUBSCRIPTION $SUBSCRIPTION -ENVIRONMENT $ENVIRONMENT -REGION $REGION
+        $deploymentInput = GetDeploymentInput -bicepFilePath $current.FullName -DIRECTORY $DIRECTORY `
+            -SUBSCRIPTION $SUBSCRIPTION `
+            -ENVIRONMENT $ENVIRONMENT `
+            -REGION $REGION `
+            -COMPONENT $COMPONENT
 
         if (!$deploymentInput) {
             throw "Unable to generate deployment input!";
@@ -169,7 +182,9 @@ N/A
 #>
 function Add-ASMGitHubDeployment {
 
-    param([switch]$SHOW)
+    param(
+        [switch]$SHOW,
+        [switch]$NOGROUP)
 
     $ErrorActionPreference = "Stop"
 
@@ -199,21 +214,22 @@ function Add-ASMGitHubDeployment {
         return
     }
 
-    $appId = $sp.id
-
-    $groupName = "GitHub Deployment"
-    $groups = az ad group list --display-name $groupName | ConvertFrom-Json
-    if ($groups.Length -eq 0) {
-        az ad group create --display-name $groupName --mail-nickname "github-deployment" | ConvertFrom-Json
-        if ($LastExitCode -ne 0) {
-            Pop-Location
-            throw "Unable to create group $groupName."
+    if (!$NOGROUP) {
+        $appId = $sp.id
+        $groupName = "GitHub Deployment"
+        $groups = az ad group list --display-name $groupName | ConvertFrom-Json
+        if ($groups.Length -eq 0) {
+            az ad group create --display-name $groupName --mail-nickname "github-deployment" | ConvertFrom-Json
+            if ($LastExitCode -ne 0) {
+                Pop-Location
+                throw "Unable to create group $groupName."
+            }
         }
+    
+        Write-Host "Adding member to group"
+    
+        az ad group member add --group $groupName --member-id $appId
     }
-
-    Write-Host "Adding member to group"
-
-    az ad group member add --group $groupName --member-id $appId
 
     $o = @{
         "clientId"       = $sp.appId;
@@ -303,21 +319,39 @@ function Set-ASMGitHubDeploymentToResourceGroup {
         [Parameter(Mandatory = $true)][string]$SOLUTIONID,
         [Parameter(Mandatory = $true)][string]$ENVIRONMENT,
         [Parameter(Mandatory = $true)][string]$SUBSCRIPTION,
-        [Parameter(Mandatory = $true)][string]$TENANT
+        [Parameter(Mandatory = $true)][string]$TENANT,
+        [switch]$NOGROUP
     )
 
-    $ghgroups = az ad group list --display-name "GitHub Deployment" | ConvertFrom-Json
-    if ($ghgroups.Length -eq 0) {
-        throw "Run Add-ASMGitHubDeployment to create GitHub Deployment and its AAD group before running this script!"
+    if (!$NOGROUP) {
+        $ghgroups = az ad group list --display-name "GitHub Deployment" | ConvertFrom-Json
+        if ($ghgroups.Length -eq 0) {
+            throw "Run Add-ASMGitHubDeployment to create GitHub Deployment and its AAD group before running this script!"
+        }
+    
+        asm role assign --role-name "Contributor" `
+            --principal-id $ghgroups.Id `
+            --principal-type "Group" `
+            --asm-sol $SOLUTIONID `
+            --asm-env $ENVIRONMENT `
+            -s $SUBSCRIPTION `
+            -t $TENANT --logging Info
     }
+    else {
+        Write-Host "Looking up 'GitHub Deployment'"        
+        $sp = az ad sp list --display-name "GitHub Deployment" | ConvertFrom-Json
+        if ($sp.Length -eq 0) {
+            throw "Run Add-ASMGitHubDeployment to create GitHub Deployment and its AAD group before running this script!"
+        }
 
-    asm role assign --role-name "Contributor" `
-        --principal-id $ghgroups.Id `
-        --principal-type "Group" `
-        --asm-sol $SOLUTIONID `
-        --asm-env $ENVIRONMENT `
-        -s $SUBSCRIPTION `
-        -t $TENANT --logging Info
+        $grp = asm lookup group --asm-sol $SOLUTIONID `
+            --asm-env $ENVIRONMENT -s $SUBSCRIPTION -t $TENANT --logging Info | ConvertFrom-Json
+        if ($LastExitCode -ne 0) {
+            throw "Error with group lookup."
+        }
+
+        az role assignment create --assignee $sp.id --role "Contributor" --scope $grp.GroupId
+    }
 
     if ($LastExitCode -ne 0) {
         throw "Error with role assignment."
