@@ -54,8 +54,9 @@ You can use the Get-Help command to track how each command can help you.
 Get-Help Invoke-ASMSetup
 ```
 
-See the Example folder in this github repo.
+See the shared-services folder in this github repo for an example. It defines a list of services that are shared across solutions.
 
 ```powershell
-Invoke-ASMSetup -TENANT <TENANT_ID> -SUBSCRIPTION <SUBSCRIPTION_ID> -DIRECTORY .\Example
+$a = az account show | ConvertFrom-Json
+Invoke-ASMSetup -TENANT $a.tenantId -SUBSCRIPTION $a.Id -DIRECTORY shared-services
 ```

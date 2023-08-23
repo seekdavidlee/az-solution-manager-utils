@@ -1,9 +1,8 @@
 param(
     [Parameter(Mandatory = $true)][string]$SUBSCRIPTION,
     [Parameter(Mandatory = $true)][string]$TENANT,
-    [Parameter(Mandatory = $false)][string]$ENVIRONMENT,
+    [Parameter(Mandatory = $true)][string]$ENVIRONMENT,
     [Parameter(Mandatory = $false)][string]$REGION)
-
 
 function GetResource {
     param (
@@ -27,7 +26,7 @@ $ErrorActionPreference = "Stop"
 
 $ghgroups = az ad group list --display-name "GitHub Deployment" | ConvertFrom-Json
 if ($ghgroups.Length -eq 0) {
-    throw "Run SetupGitHub.ps1 to create GitHub Deployment and its AAD group before running this script!"
+    throw "Run Add-ASMGitHubDeployment to create GitHub Deployment and Set-ASMGitHubDeploymentToResourceGroup to assign to a AAD group before running this script!"
 }
 
 $solutionId = "shared-services"
@@ -90,4 +89,32 @@ asm role assign --role-name "Managed Identity Operator" `
 if ($LastExitCode -ne 0) {
     Pop-Location
     throw "Unable to assign 'Managed Identity Operator' role."
+}
+
+$appConfig = GetResource -solutionId $solutionId -environmentName $environmentName -resourceId "shared-app-configuration" -SUBSCRIPTION $SUBSCRIPTION -TENANT $TENANT
+
+az role assignment create --assignee $ghgroups.id --role "App Configuration Data Reader" --scope $appConfig.ResourceId
+if ($LastExitCode -ne 0) {
+    Pop-Location
+    throw "Unable to assign 'App Configuration Data Reader' role."
+}
+
+# Assign your current user access to app config, keyvault
+
+$currentUserId = az ad signed-in-user show --query "id" | ConvertFrom-Json
+if ($LastExitCode -ne 0) {
+    Pop-Location
+    throw "Unable to get current user."
+}
+
+az role assignment create --assignee $currentUserId --role "App Configuration Data Owner" --scope $appConfig.ResourceId
+if ($LastExitCode -ne 0) {
+    Pop-Location
+    throw "Unable to assign 'App Configuration Data Owner' role to yourself."
+}
+
+az role assignment create --assignee $currentUserId --role "Key Vault Secrets Officer" --scope $kv.ResourceId
+if ($LastExitCode -ne 0) {
+    Pop-Location
+    throw "Unable to assign 'Key Vault Secrets Officer' role to yourself."
 }
