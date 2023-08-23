@@ -199,13 +199,15 @@ function Add-ASMGitHubDeployment {
         Write-Host "App password: $password"
 
         $sp = az ad sp show --id $sp.appId | ConvertFrom-Json
-        $appId = $sp.appId
+        $appId = $sp.id
+
+        # Wait a bit
+        Start-Sleep -Seconds 15
         az rest --method PATCH --url "https://graph.microsoft.com/v1.0/servicePrincipals/$appId"  --body '{\"tags\": [\"asm-resource-id:githubdeployment\"] }' --headers '{\"Content-Type\": \"application/json\"}'
     }
 
+    $sub = az account show | ConvertFrom-Json
     if ($Show) {
-        $sub = az account show | ConvertFrom-Json
-
         $o = @{
             "clientId"       = $sp.appId;
             "clientSecret"   = "";
