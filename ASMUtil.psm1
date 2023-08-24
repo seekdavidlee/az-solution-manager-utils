@@ -189,7 +189,9 @@ function Add-ASMGitHubDeployment {
     $ErrorActionPreference = "Stop"
 
     $spName = "GitHub Deployment"
-    $sp = az ad sp list --display-name "GitHub Deployment" | ConvertFrom-Json
+    $spList = az ad sp list --display-name $spName | ConvertFrom-Json
+    $sp = $spList | Where-Object { $_.tags.Contains("asm-resource-id:githubdeployment") }
+
     if ($sp.Length -eq 0) {
         $sp = az ad sp create-for-rbac --display-name $spName --years 1 | ConvertFrom-Json
         $password = $sp.password
@@ -197,11 +199,15 @@ function Add-ASMGitHubDeployment {
         Write-Host "App password: $password"
 
         $sp = az ad sp show --id $sp.appId | ConvertFrom-Json
+        $appId = $sp.id
+
+        # Wait a bit
+        Start-Sleep -Seconds 15
+        az rest --method PATCH --url "https://graph.microsoft.com/v1.0/servicePrincipals/$appId"  --body '{\"tags\": [\"asm-resource-id:githubdeployment\"] }' --headers '{\"Content-Type\": \"application/json\"}'
     }
 
+    $sub = az account show | ConvertFrom-Json
     if ($Show) {
-        $sub = az account show | ConvertFrom-Json
-
         $o = @{
             "clientId"       = $sp.appId;
             "clientSecret"   = "";
@@ -320,10 +326,11 @@ function Set-ASMGitHubDeploymentToResourceGroup {
         [Parameter(Mandatory = $true)][string]$ENVIRONMENT,
         [Parameter(Mandatory = $true)][string]$SUBSCRIPTION,
         [Parameter(Mandatory = $true)][string]$TENANT,
-        [switch]$NOGROUP
+        [switch]$NOGROUP    
     )
 
     if (!$NOGROUP) {
+        # Assign group to Contributor role
         $ghgroups = az ad group list --display-name "GitHub Deployment" | ConvertFrom-Json
         if ($ghgroups.Length -eq 0) {
             throw "Run Add-ASMGitHubDeployment to create GitHub Deployment and its AAD group before running this script!"
@@ -339,7 +346,11 @@ function Set-ASMGitHubDeploymentToResourceGroup {
     }
     else {
         Write-Host "Looking up 'GitHub Deployment'"        
-        $sp = az ad sp list --display-name "GitHub Deployment" | ConvertFrom-Json
+        
+        $spName = "GitHub Deployment"
+        $spList = az ad sp list --display-name $spName | ConvertFrom-Json
+        $sp = $spList | Where-Object { $_.tags.Contains("asm-resource-id:githubdeployment") }
+
         if ($sp.Length -eq 0) {
             throw "Run Add-ASMGitHubDeployment to create GitHub Deployment and its AAD group before running this script!"
         }

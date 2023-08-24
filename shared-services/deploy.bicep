@@ -5,7 +5,7 @@ param keyVaultName string = 'vs${uniqueString(resourceGroup().name)}'
 param containerRegistryName string = 'vs${uniqueString(resourceGroup().name)}'
 param sharedIdentityName string = 'vs${uniqueString(resourceGroup().name)}'
 
-resource storageAccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
+resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: storageName
   location: location
   sku: {
@@ -18,17 +18,17 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
   }
 }
 
-resource blobServices 'Microsoft.Storage/storageAccounts/blobServices@2021-08-01' = {
+resource blobServices 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = {
   parent: storageAccount
   name: 'default'
 }
 
-resource appsContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2021-08-01' = {
+resource appsContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
   parent: blobServices
   name: 'apps'
 }
 
-resource certsContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2021-08-01' = {
+resource certsContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
   parent: blobServices
   name: 'certs'
 }

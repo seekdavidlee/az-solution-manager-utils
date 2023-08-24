@@ -12,7 +12,7 @@ This utility is for those Admins. As an Admin, you can create those shared resou
 * Your bicep parameter files must end with 'bicep.json'
 * Your post deployment script must be named 'postDeployment.ps1' - Usually used to perform role assignments
 
-# Usage
+## Usage
 
 This module contains Utility powershell scripts for AzSolutionManager. Follow the one-time setup if you have not done so. 
 
@@ -20,13 +20,13 @@ This module contains Utility powershell scripts for AzSolutionManager. Follow th
 
 To begin, you need to install ASM. ASM is currently in beta so you need to be explicit about the version.
 
-```
+```bash
 dotnet tool install --global AzSolutionManager --version 0.1.4-beta
 ```
 
 Next, you need to initialize ASM in each of the Azure Subscription you wish to use ASM.
 
-```
+```bash
 asm init --resource-group-name asm --location centralus --managed-identity asm-identity
 ```
 
@@ -54,8 +54,9 @@ You can use the Get-Help command to track how each command can help you.
 Get-Help Invoke-ASMSetup
 ```
 
-See the Example folder in this github repo.
+See the shared-services folder in this github repo for an example. It defines a list of services that are shared across solutions.
 
 ```powershell
-Invoke-ASMSetup -TENANT <TENANT_ID> -SUBSCRIPTION <SUBSCRIPTION_ID> -DIRECTORY .\Example
+$a = az account show | ConvertFrom-Json
+Invoke-ASMSetup -TENANT $a.tenantId -SUBSCRIPTION $a.Id -DIRECTORY shared-services
 ```
