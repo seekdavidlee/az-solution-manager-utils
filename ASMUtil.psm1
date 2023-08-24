@@ -223,7 +223,7 @@ function Add-ASMGitHubDeployment {
     if (!$NOGROUP) {
         $appId = $sp.id
         $groupName = "GitHub Deployment"
-        $groups = az ad group list --display-name $groupName | ConvertFrom-Json
+        $groups = az ad group list --display-name $groupName | ConvertFrom-Json | Where-Object { $_.mailNickname -eq "github-deployment" }
         if ($groups.Length -eq 0) {
             az ad group create --display-name $groupName --mail-nickname "github-deployment" | ConvertFrom-Json
             if ($LastExitCode -ne 0) {
@@ -331,7 +331,7 @@ function Set-ASMGitHubDeploymentToResourceGroup {
 
     if (!$NOGROUP) {
         # Assign group to Contributor role
-        $ghgroups = az ad group list --display-name "GitHub Deployment" | ConvertFrom-Json
+        $ghgroups = az ad group list --display-name "GitHub Deployment" | ConvertFrom-Json | Where-Object { $_.mailNickname -eq "github-deployment" }
         if ($ghgroups.Length -eq 0) {
             throw "Run Add-ASMGitHubDeployment to create GitHub Deployment and its AAD group before running this script!"
         }
