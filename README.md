@@ -21,7 +21,7 @@ This module contains Utility powershell scripts for AzSolutionManager. Follow th
 To begin, you need to install ASM. ASM is currently in beta so you need to be explicit about the version.
 
 ```bash
-dotnet tool install --global AzSolutionManager --version 0.1.4-beta
+dotnet tool install --global AzSolutionManager --version 0.1.6-beta
 ```
 
 Next, you need to initialize ASM in each of the Azure Subscription you wish to use ASM.

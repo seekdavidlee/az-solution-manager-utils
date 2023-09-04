@@ -26,49 +26,6 @@ function ApplyManifest {
     Write-Host "$filePath Manifest applied."
 }
 
-function GetDeploymentInput {
-    param(
-        [Parameter(Mandatory = $true)][string]$bicepFilePath,
-        [Parameter(Mandatory = $true)][string]$DIRECTORY,
-        [Parameter(Mandatory = $true)][string]$SUBSCRIPTION,
-        [Parameter(Mandatory = $false)][string]$ENVIRONMENT,
-        [Parameter(Mandatory = $false)][string]$REGION,
-        [Parameter(Mandatory = $false)][string]$COMPONENT
-    )
-
-    $addArgs = @()
-
-    if ($ENVIRONMENT) {
-        $addArgs += "--asm-env"
-        $addArgs += $ENVIRONMENT
-
-        Write-Host "Set environment: $ENVIRONMENT"
-    }
-
-    if ($REGION) {
-        $addArgs += "--asm-reg"
-        $addArgs += $REGION
-
-        Write-Host "Set region: $REGION"
-    }
-
-    if ($COMPONENT) {
-        $addArgs += "--asm-com"
-        $addArgs += $COMPONENT
-
-        Write-Host "Set component: $COMPONENT"
-    }
-    
-    $json = asm deployment parameters -f $bicepFilePath -s $SUBSCRIPTION -t $TENANT $addArgs --logging Info
-    if ($LastExitCode -ne 0) {
-        Pop-Location
-        throw "Unable to generate deployment input."
-    }
-
-    $obj = $json | ConvertFrom-Json
-    return $obj
-}
-
 <#
 .SYNOPSIS
 Apply ASM specific manifest definations and optionally run Bicep deployments and post deployment script.
@@ -111,33 +68,33 @@ function Invoke-ASMSetup {
     Get-ChildItem -Path $DIRECTORY -Filter "*.json"-File | Where-Object { $_.Name -like "*_bicep.json" -or $_.Name -eq "bicep.json" } | ForEach-Object {
         $current = $_
         Write-Host "Processing $current"
-        $deploymentInput = GetDeploymentInput -bicepFilePath $current.FullName -DIRECTORY $DIRECTORY `
-            -SUBSCRIPTION $SUBSCRIPTION `
-            -ENVIRONMENT $ENVIRONMENT `
-            -REGION $REGION `
-            -COMPONENT $COMPONENT
-
-        if (!$deploymentInput) {
-            throw "Unable to generate deployment input!";
-        }
-
-        if (!$deploymentInput.GroupName) {
-            throw "Group name is not configured! $deploymentInput"
-        }
 
         $addArgs = @()
-        $deploymentName = $DIRECTORY + (Get-Date).ToString("yyyyMMddHHmmss")
-        if ($deploymentInput.Parameters) {
-            $json = $deploymentInput.Parameters | ConvertTo-Json -Compress
-            $json = $json.Replace('"', '\"')
-
-            $addArgs += "--parameters"
-            $addArgs += $json
+        if ($ENVIRONMENT) {
+            $addArgs += "--asm-env"
+            $addArgs += $ENVIRONMENT
+    
+            Write-Host "Set environment: $ENVIRONMENT"
+        }
+    
+        if ($REGION) {
+            $addArgs += "--asm-reg"
+            $addArgs += $REGION
+    
+            Write-Host "Set region: $REGION"
+        }
+    
+        if ($COMPONENT) {
+            $addArgs += "--asm-com"
+            $addArgs += $COMPONENT
+    
+            Write-Host "Set component: $COMPONENT"
         }
 
-        az deployment group create --name $deploymentName --resource-group $deploymentInput.GroupName --template-file "$DIRECTORY\deploy.bicep" $addArgs
+        asm deployment run -f $current.FullName --template-filepath "$DIRECTORY\deploy.bicep" -s $SUBSCRIPTION -t $TENANT $addArgs --logging Info
         if ($LastExitCode -ne 0) {
-            throw "Error with deployment."
+            Pop-Location
+            throw "Unable to run deployment."
         }
     }
 
