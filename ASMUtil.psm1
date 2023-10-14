@@ -256,7 +256,7 @@ Export-ModuleMember -Function Get-ASMResource
 
 <#
 .SYNOPSIS
-Assign GitHub Deployment AAD Group 'Contributor' role in the Solution managed Resource Group.
+Assign GitHub Deployment AAD Group  to the default 'Contributor' or -ROLENAME role in the Solution managed Resource Group.
 
 .DESCRIPTION
 The Service Principal that is assigned to the 'GitHub Deployment' AAD Group will have access to create resources such as during CI/CD pipeline.
@@ -283,17 +283,24 @@ function Set-ASMGitHubDeploymentToResourceGroup {
         [Parameter(Mandatory = $true)][string]$ENVIRONMENT,
         [Parameter(Mandatory = $true)][string]$SUBSCRIPTION,
         [Parameter(Mandatory = $true)][string]$TENANT,
+        [Parameter(Mandatory = $false)][string]$ROLENAME,
         [switch]$NOGROUP    
     )
 
+    if (!$ROLENAME){
+        $ROLENAME = "Contributor"
+    }
+
+    Write-Host "Role: '$ROLENAME'" 
+
     if (!$NOGROUP) {
-        # Assign group to Contributor role
+        # Assign group to $ROLENAME role
         $ghgroups = az ad group list --display-name "GitHub Deployment" | ConvertFrom-Json | Where-Object { $_.mailNickname -eq "github-deployment" }
         if ($ghgroups.Length -eq 0) {
             throw "Run Add-ASMGitHubDeployment to create GitHub Deployment and its AAD group before running this script!"
         }
     
-        asm role assign --role-name "Contributor" `
+        asm role assign --role-name $ROLENAME `
             --principal-id $ghgroups.Id `
             --principal-type "Group" `
             --asm-sol $SOLUTIONID `
@@ -318,7 +325,7 @@ function Set-ASMGitHubDeploymentToResourceGroup {
             throw "Error with group lookup."
         }
 
-        az role assignment create --assignee $sp.id --role "Contributor" --scope $grp.GroupId
+        az role assignment create --assignee $sp.id --role $ROLENAME --scope $grp.GroupId
     }
 
     if ($LastExitCode -ne 0) {
